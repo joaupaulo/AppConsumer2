@@ -26,25 +26,27 @@ namespace AppConsumer.QueueService
             _context = database.GetCollection<Product>(settings.ProdutosCollectionName);
         }
 
-        public async Task CriarProduto(Product product)
+        public async Task CreateProduct(Product product)
         {
 
-
-
-            await _context.InsertOneAsync(product);
+                await _context.InsertOneAsync(product);
+             
         }
 
 
-
-        public async Task<bool> VenderProduto(Product product)
+        public async Task<bool> SellProduct(Product product)
         {
-
-
+            product.Amount = product.Amount - product.QuantityProducts;
 
             var updateResult = await _context.ReplaceOneAsync(filter: g => g.Id == product.Id, replacement: product);
+                return updateResult.IsAcknowledged && updateResult.ModifiedCount > 0;
 
-            return updateResult.IsAcknowledged && updateResult.ModifiedCount > 0;
+     
         }
+
+
+
+     
 
 
 
@@ -67,9 +69,17 @@ namespace AppConsumer.QueueService
                     var message = Encoding.UTF8.GetString(body);
                     var order = System.Text.Json.JsonSerializer.Deserialize<Product>(message);
 
+                    var sell = _context.Count(x => x.Id == order.Id);
 
+                    if (sell > 1 )
+                    {
+                        CreateProduct(order);
+                    } else
+                    {
+                        SellProduct(order);
+                    }
 
-                    CriarProduto(order);
+                    
 
                 };
                 channel.BasicConsume(queue: "hello",
